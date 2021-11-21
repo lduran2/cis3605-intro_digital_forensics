@@ -1,0 +1,7 @@
+# compiled programs
+*.class
+
+# data files
+# (registry exports)
+*.reg
+
