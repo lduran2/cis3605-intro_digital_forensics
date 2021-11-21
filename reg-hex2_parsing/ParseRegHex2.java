@@ -116,7 +116,8 @@ public enum ParseRegHex2 {
 		int i_hex2;	/* index of hex2 assignment in `line` */
 		boolean in_hex2 = false;	/* whether parser is in
 		                        	 * a hex2 string */
-		StringBuilder sb = null;
+		/* builds the pairs string */
+		StringBuilder pairs_sb = null;
 
 		/* read all lines from here on */
 		while ((line = src.readLine()) != null) {
@@ -147,7 +148,7 @@ public enum ParseRegHex2 {
 				/* state now in_hex2 */
 				in_hex2 = true;
 				/* create string builder */
-				sb = new StringBuilder();
+				pairs_sb = new StringBuilder();
 			} /* (in_hex2) || ((i_hex2 = findHex2(line)) == -1)
 				else */
 
@@ -158,17 +159,18 @@ public enum ParseRegHex2 {
 				/* if still in hex2 */
 				if (in_hex2) {
 					/* don't append the '\' */
-					final int NEW_LEN
-						= (line.length() - 1);
-					sb.append(line.substring(0, NEW_LEN));
+					final String LINE_PAIRS
+						= line.substring(0,
+							(line.length() - 1)
+						);
+					pairs_sb.append(LINE_PAIRS);
 				} /* if (in_hex2) */
 				else {
 					/* append the last line */
-					sb.append(line);
+					pairs_sb.append(line);
 					/* print the processed pairs */
-					dest.printf("%s\n",
-						processPairs(sb.toString())
-					);
+					dest.printf("%s\n", processPairs(
+						pairs_sb.toString()));
 				} /* if (in_hex2) */
 			} /* if (in_hex2) */
 
