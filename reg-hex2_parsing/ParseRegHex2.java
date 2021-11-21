@@ -2,13 +2,16 @@
  * Parses all hex(2) keys input in REG EXPORT format.
  *
  * By        : Leomar Duran <https://github.com/lduran2/>
- * When      : 2021-11-20t23:43
+ * When      : 2021-11-21t05:07
  * Where     : Temple University
  * For       : CIS 3605
- * Version   : 1.0.1
+ * Version   : 1.0.3
  * Canonical : https://github.com/lduran2/cis3605-intro_digital_forensics/blob/master/reg-hex2_parsing/ParseRegHex2.java
  *
  * CHANGELOG :
+ *     v1.0.3 - 2021-11-21t05:07
+ *         abstracted out `copySignature` and `processLines`
+ *
  *     v1.0.2 - 2021-11-21t03:57
  *         fixed printing as binary
  *
@@ -19,8 +22,11 @@
  *         read all lines
  */
 
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.BufferedReader;
+import java.io.OutputStream;
+import java.io.PrintStream;
 import java.io.IOException;
 import java.io.IOError;
 
@@ -33,54 +39,91 @@ public enum ParseRegHex2 {
 
 	/* marks the beginning of a hex2 */
 	public static final String HEX2_START = "=hex(2):";
+	public static final int HEX2_START_LEN = HEX2_START.length();
 
 	/* length of the signature */
 	public static final int SIGNATURE_LEN = 2;
 
 	public static void main(final String... args) {
-		String line;	/* current line read */
-
 		/* buffered reader for STDIN */
 		try (final BufferedReader BRIN = new BufferedReader(
 					new InputStreamReader(in)))
 		{
-			/* read in the signature */
-			final byte[] SIGNATURE = new byte[SIGNATURE_LEN];
-			final int NB_READ = in.read(SIGNATURE);
-
-			/* if not long enough */
-			if (NB_READ < SIGNATURE_LEN) {
-				/* stop now */
-				return;
-			} /* if (NB_LEN < SIGNATURE_LEN) */
-
-			/* otherwise, write the signature */
-			out.write(SIGNATURE);
-			out.flush();
-
-			/* read all lines from here on */
-			while ((line = BRIN.readLine()) != null) {
-				/**
-				 * remove any null characters
-				 * because programs will treat this as
-				 * a binary file if there are null
-				 * characters in the first 3000
-				 * @see https://github.com/desktop/desktop/issues/6175
-				 */
-				line = removeNulls(line, line.length());
-				/* if not a hex2 string */
-				if (findHex2(line) == -1)
-				{
-					/* just print the line */
-					out.printf("%s\n", line);
-				} /* if (!isHex2(line)) */
-			} /* while ((line = BRIN.readLine()) != null) */
+			copySignature(in, out);
+			processLines(BRIN, out);
 		} /* try (new BufferedReader(...System.in)) */
 		catch (final IOException IOE) {
 			/* no recovery from IOException */
 			throw new IOError(IOE);
 		} /* catch (final IOException IOE) */
 	} /* public static void main(final String... args) */
+
+	/**
+	 * Copies the signature of `src` into `dest`.
+	 * @param src : InputStream = the source bytestream
+	 * @param dest : OutputStream = the destination bytestream
+	 * @throws IOException if an unexpected IO error occurs
+	 */
+	public static void copySignature(
+			final InputStream src, final OutputStream dest)
+		throws IOException
+	{
+		/* read in the signature */
+		final byte[] SIGNATURE = new byte[SIGNATURE_LEN];
+		final int NB_READ = src.read(SIGNATURE);
+
+		/* if not long enough */
+		if (NB_READ < SIGNATURE_LEN) {
+			/* stop now */
+			return;
+		} /* if (NB_LEN < SIGNATURE_LEN) */
+
+		/* otherwise, write the signature */
+		dest.write(SIGNATURE);
+		/* ensure write through to file */
+		dest.flush();
+	} /* public static void copySignature(
+			final InputStream src, final OutputStream dest)
+		throws IOException
+	   */
+
+	/**
+	 * Reads lines from buffered reader `src`, processes each line,
+	 * and prints it to print stream `dest`.
+	 * @param src : BufferedReader = the source of the lines of
+	 *     data
+	 * @param dest : PrintStream = the destination of the processed
+	 * 	data
+	 * @throws IOException if an unexpected IO error occurs
+	 */
+	public static void processLines(
+			final BufferedReader src, final PrintStream dest)
+		throws IOException
+	{
+		String line;	/* current line read */
+
+		/* read all lines from here on */
+		while ((line = src.readLine()) != null) {
+			/* clean the line */
+			/**
+			 * remove any null characters
+			 * because programs will treat this as
+			 * a binary file if there are null
+			 * characters in the first 3000
+			 * @see https://github.com/desktop/desktop/issues/6175
+			 */
+			line = removeNulls(line, line.length());
+			/* if not a hex2 string */
+			if (findHex2(line) == -1)
+			{
+				/* just print the line */
+				dest.println(line);
+			} /* if (!isHex2(line)) */
+		} /* while ((line = src.readLine()) != null) */
+	} /* public static void processLines(
+			final BufferedReader src, final PrintStream dest)
+		throws IOException
+	   */
 
 	/**
 	 * Returns whether the string `s` is a hex2 assignment.
@@ -100,7 +143,7 @@ public enum ParseRegHex2 {
 		/* beginning of HEX2 assignment */
 		final int I_BEGIN = (I_QUOTE1 + 1);
 		/* end of HEX2 assignment */
-		final int I_END = (I_BEGIN + HEX2_START.length());
+		final int I_END = (I_BEGIN + HEX2_START_LEN);
 		/* stop if string is too short */
 		if (s.length() < I_END) {
 			return -1;
@@ -127,7 +170,9 @@ public enum ParseRegHex2 {
 	 * @return a string similar to the character sequence, but
 	 * without null characters within the first `len` characters
 	 */
-	public static String removeNulls(final CharSequence cs, final int len) {
+	public static String removeNulls(
+			final CharSequence cs, final int len)
+	{
 		/* buffer same size as string */
 		final StringBuilder SB = new StringBuilder(len);
 		/* loop through all the characters */
@@ -140,7 +185,9 @@ public enum ParseRegHex2 {
 		}
 		/* build the string and return it */
 		return SB.toString();
-	} /* public static String removeNulls(final CharSequence cs, final int len) */
+	} /* public static String removeNulls(
+			final CharSequence cs, final int len)
+	   */
 
 } /* public enum ParseRegHex2 */
 
