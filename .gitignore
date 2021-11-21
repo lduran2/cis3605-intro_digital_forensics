@@ -4,6 +4,7 @@
 # data files
 # (registry exports)
 *.reg
+*.outreg
 
 # swap files
 *.swp
