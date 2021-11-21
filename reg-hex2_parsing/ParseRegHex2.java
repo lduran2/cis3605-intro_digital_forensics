@@ -2,13 +2,16 @@
  * Parses all hex(2) keys input in REG EXPORT format.
  *
  * By        : Leomar Duran <https://github.com/lduran2/>
- * When      : 2021-11-21t05:07
+ * When      : 2021-11-21t12:19
  * Where     : Temple University
  * For       : CIS 3605
- * Version   : 1.0.3
+ * Version   : 1.0.4
  * Canonical : https://github.com/lduran2/cis3605-intro_digital_forensics/blob/master/reg-hex2_parsing/ParseRegHex2.java
  *
  * CHANGELOG :
+ *     v1.0.4 - 2021-11-21t12:19
+ *         printing all immediate hex2 lines
+ *
  *     v1.0.3 - 2021-11-21t05:07
  *         abstracted out `copySignature` and `processLines`
  *
@@ -101,10 +104,10 @@ public enum ParseRegHex2 {
 		throws IOException
 	{
 		String line;	/* current line read */
+		int i_hex2;	/* index of hex2 assignment in `line` */
 
 		/* read all lines from here on */
 		while ((line = src.readLine()) != null) {
-			/* clean the line */
 			/**
 			 * remove any null characters
 			 * because programs will treat this as
@@ -114,11 +117,15 @@ public enum ParseRegHex2 {
 			 */
 			line = removeNulls(line, line.length());
 			/* if not a hex2 string */
-			if (findHex2(line) == -1)
+			if ((i_hex2 = findHex2(line)) == -1)
 			{
-				/* just print the line */
-				dest.println(line);
+//				/* just print the line */
+//				dest.printf("%s\n", line);
 			} /* if (!isHex2(line)) */
+			else {
+				dest.printf("%s\n", line);
+//				dest.printf("%s", line.substring(0, i_hex2));
+			}
 		} /* while ((line = src.readLine()) != null) */
 	} /* public static void processLines(
 			final BufferedReader src, final PrintStream dest)
@@ -134,8 +141,8 @@ public enum ParseRegHex2 {
 		/* find opening quotation mark */
 		final int I_QUOTE0 = s.indexOf("\"");
 		/* find closing quotation mark */
-		final int I_QUOTE1 = s.indexOf("\"", I_QUOTE0);
-		/* stop if no quotation marks */
+		final int I_QUOTE1 = s.indexOf("\"", (I_QUOTE0 + 1));
+		/* filter out line without quotes names/values */
 		if (I_QUOTE1 == -1) {
 			return -1;
 		} /* if (I_QUOTE1 == -1) */
@@ -144,14 +151,14 @@ public enum ParseRegHex2 {
 		final int I_BEGIN = (I_QUOTE1 + 1);
 		/* end of HEX2 assignment */
 		final int I_END = (I_BEGIN + HEX2_START_LEN);
-		/* stop if string is too short */
+		/* filter out lines that are too short */
 		if (s.length() < I_END) {
 			return -1;
 		} /* if (s.length() < I_END) */
 
 		/* get the substring corresponding to HEX2_START */
 		final String h2subs = s.substring(I_BEGIN, I_END);
-		/* if the substring is not equal */
+		/* filter out strings not containing HEX2_START there */
 		if (!h2subs.equals(HEX2_START)) {
 			/* return not found */
 			return -1;
