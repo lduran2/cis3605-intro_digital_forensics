@@ -2,13 +2,19 @@
  * Parses all hex(2) keys input in REG EXPORT format.
  *
  * By        : Leomar Duran <https://github.com/lduran2/>
- * When      : 2021-11-21t12:50
+ * When      : 2021-11-21t16:41
  * Where     : Temple University
  * For       : CIS 3605
- * Version   : 1.1.0
+ * Version   : 1.1.2
  * Canonical : https://github.com/lduran2/cis3605-intro_digital_forensics/blob/master/reg-hex2_parsing/ParseRegHex2.java
  *
  * CHANGELOG :
+ *     v1.1.2 - 2021-11-21t16:41
+ *         abstracted out `processPairs` and `processCharPair`
+ *
+ *     v1.1.1 - 2021-11-21t15:56
+ *         decoding hex2
+ *
  *     v1.1.0 - 2021-11-21t12:50
  *         identifying when in hex2
  *
@@ -110,7 +116,7 @@ public enum ParseRegHex2 {
 		int i_hex2;	/* index of hex2 assignment in `line` */
 		boolean in_hex2 = false;	/* whether parser is in
 		                        	 * a hex2 string */
-		int k = 0;
+		StringBuilder sb = null;
 
 		/* read all lines from here on */
 		while ((line = src.readLine()) != null) {
@@ -121,26 +127,51 @@ public enum ParseRegHex2 {
 			 * characters in the first 3000
 			 * @see https://github.com/desktop/desktop/issues/6175
 			 */
-			line = removeNulls(line, line.length());
+			line = removeNulls(line.length(), line);
 			/* if in a hex2 string */
 			if (in_hex2) {
-				in_hex2 = isInHex2(line);
-				++k;
-				dest.printf("%b\t%d\t%s\n", in_hex2, k, line);
+				/* wait */
 			} /* if (in_hex2) */
 			/* if not new a hex2 string */
 			else if ((i_hex2 = findHex2(line)) == -1)
 			{
-//				/* just print the line */
-//				dest.printf("%s\n", line);
+				/* just print the line */
+				dest.printf("%s\n", line);
 			} /* if ((i_hex2 = findHex2(line)) == -1) */
 			else {
+				/* print the line up to i_hex32 */
 				dest.printf("%s", line.substring(0, i_hex2));
-				in_hex2 = isInHex2(line.substring(i_hex2));
-				k = 1;
-				dest.printf("%b\t%d\n", in_hex2, k);
+				dest.printf("%s", HEX2_START.substring(1));
+				/* update line */
+				line = line.substring(i_hex2 + HEX2_START.length() - 1);
+				/* state now in_hex2 */
+				in_hex2 = true;
+				/* create string builder */
+				sb = new StringBuilder();
 			} /* (in_hex2) || ((i_hex2 = findHex2(line)) == -1)
 				else */
+
+			/* if in a hex2 string */
+			if (in_hex2) {
+				/* check if next line still in hex2 */
+				in_hex2 = isInHex2(line);
+				/* if still in hex2 */
+				if (in_hex2) {
+					/* don't append the '\' */
+					final int NEW_LEN
+						= (line.length() - 1);
+					sb.append(line.substring(0, NEW_LEN));
+				} /* if (in_hex2) */
+				else {
+					/* append the last line */
+					sb.append(line);
+					/* print the processed pairs */
+					dest.printf("%s\n",
+						processPairs(sb.toString())
+					);
+				} /* if (in_hex2) */
+			} /* if (in_hex2) */
+
 			/* clear '\n' in '\r\n' */
 			src.readLine();
 		} /* while ((line = src.readLine()) != null) */
@@ -186,24 +217,80 @@ public enum ParseRegHex2 {
 		} /* (!h2subs.equals(HEX2_START)) else */
 	} /* public static int findHex2(final String s) */
 
+	/**
+	 * Returns whether the line is still in hex2.
+	 * @param line : String = to test
+	 * @return true if still in hex2; false otherwise
+	 */
 	public static boolean isInHex2(final CharSequence line) {
+		/* filter nulls null */
 		if (line == null) {
 			return false;
-		}
+		} /* if (line == null) */
+		/* get the length */
 		final int LEN = line.length();
+		/* if last character is '\' */
 		return ((LEN != 0) && (line.charAt(LEN - 1) == '\\'));
-	}
+	} /* public static boolean isInHex2(final CharSequence line) */
+
+	/**
+	 * Processes a string of comma separated hex-formatted bytes
+	 * representing a character string.
+	 * @param s : String = the csv string to process
+	 * @return the string represented as bytes
+	 */
+	public static String processPairs(final String s) {
+		/* builds the output string */
+		final StringBuilder SB = new StringBuilder();
+		/* the csv string separated into values */
+		final String[] S_PAIRS = s.split(",");
+		for (int k = 0, len = S_PAIRS.length; (k < len); k +=2) {
+			/* process the csv string */
+			final char CHAR = processCharPair(S_PAIRS, k);
+			/* if non-null character */
+			if (0 != CHAR) {
+				/* append to the string builder */
+				SB.append(CHAR);
+			} /* if (0 != CHAR) */
+		} /* for (int k = 0, len = S_PAIRS.length; (k < len); k +=2)
+		   */
+		/* terminate and return string */
+		return SB.append("\"").toString();
+	} /* public static String processPairs(final String s) */
+
+	/**
+	 * Processes a single pair of hex-formatted integers
+	 * representing a character at index `idx`.
+	 * @param sPairs : String[] = array containing pair
+	 * @param idx : int = the index at which to process
+	 * @return the character processed
+	 */
+	public static char processCharPair(
+			final String[] sPairs, final int idx)
+	{
+		/* big endian, so HI follows */
+		/* also may have leading space */
+		final String SHI = sPairs[idx | 1].trim().toUpperCase();
+		final String SLO = sPairs[idx].trim().toUpperCase();
+		/* convert to integers */
+		final int IHI = Integer.valueOf(SHI, 16);
+		final int ILO = Integer.valueOf(SLO, 16);
+		/* convert to a single byte and return */
+		return ((char)((IHI << (2*4)) | ILO));
+	} /* public static char processCharPair(
+			final String[] sPairs, final int idx)
+	   */
 
 	/**
 	 * Removes all null characters in a given character sequence up
 	 * to length `len`.
-	 * @param cs : CharSequence = to clean up
 	 * @param len : int = maximum number of characters to filter
+	 * @param cs : CharSequence = to clean up
 	 * @return a string similar to the character sequence, but
 	 * without null characters within the first `len` characters
 	 */
 	public static String removeNulls(
-			final CharSequence cs, final int len)
+			final int len, final CharSequence cs)
 	{
 		/* buffer same size as string */
 		final StringBuilder SB = new StringBuilder(len);
@@ -218,7 +305,7 @@ public enum ParseRegHex2 {
 		/* build the string and return it */
 		return SB.toString();
 	} /* public static String removeNulls(
-			final CharSequence cs, final int len)
+			final int len, final CharSequence cs))
 	   */
 
 } /* public enum ParseRegHex2 */

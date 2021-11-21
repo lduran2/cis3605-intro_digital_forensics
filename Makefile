@@ -6,6 +6,6 @@ ParseRegHex2.class: reg-hex2_parsing/ParseRegHex2.java
 clean-build: clean ParseRegHex2.class
 
 clean:
-	-find . -type f -name *.class -print -delete
+	-find . -type f -name "*.class" -print -delete
 	-rm -f *.outreg
 

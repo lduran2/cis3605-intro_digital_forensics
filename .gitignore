@@ -5,3 +5,6 @@
 # (registry exports)
 *.reg
 
+# swap files
+*.swp
+
