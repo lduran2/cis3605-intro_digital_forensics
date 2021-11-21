@@ -2,13 +2,16 @@
  * Parses all hex(2) keys input in REG EXPORT format.
  *
  * By        : Leomar Duran <https://github.com/lduran2/>
- * When      : 2021-11-21t12:19
+ * When      : 2021-11-21t12:50
  * Where     : Temple University
  * For       : CIS 3605
- * Version   : 1.0.4
+ * Version   : 1.1.0
  * Canonical : https://github.com/lduran2/cis3605-intro_digital_forensics/blob/master/reg-hex2_parsing/ParseRegHex2.java
  *
  * CHANGELOG :
+ *     v1.1.0 - 2021-11-21t12:50
+ *         identifying when in hex2
+ *
  *     v1.0.4 - 2021-11-21t12:19
  *         printing all immediate hex2 lines
  *
@@ -105,6 +108,9 @@ public enum ParseRegHex2 {
 	{
 		String line;	/* current line read */
 		int i_hex2;	/* index of hex2 assignment in `line` */
+		boolean in_hex2 = false;	/* whether parser is in
+		                        	 * a hex2 string */
+		int k = 0;
 
 		/* read all lines from here on */
 		while ((line = src.readLine()) != null) {
@@ -116,16 +122,27 @@ public enum ParseRegHex2 {
 			 * @see https://github.com/desktop/desktop/issues/6175
 			 */
 			line = removeNulls(line, line.length());
-			/* if not a hex2 string */
-			if ((i_hex2 = findHex2(line)) == -1)
+			/* if in a hex2 string */
+			if (in_hex2) {
+				in_hex2 = isInHex2(line);
+				++k;
+				dest.printf("%b\t%d\t%s\n", in_hex2, k, line);
+			} /* if (in_hex2) */
+			/* if not new a hex2 string */
+			else if ((i_hex2 = findHex2(line)) == -1)
 			{
 //				/* just print the line */
 //				dest.printf("%s\n", line);
-			} /* if (!isHex2(line)) */
+			} /* if ((i_hex2 = findHex2(line)) == -1) */
 			else {
-				dest.printf("%s\n", line);
-//				dest.printf("%s", line.substring(0, i_hex2));
-			}
+				dest.printf("%s", line.substring(0, i_hex2));
+				in_hex2 = isInHex2(line.substring(i_hex2));
+				k = 1;
+				dest.printf("%b\t%d\n", in_hex2, k);
+			} /* (in_hex2) || ((i_hex2 = findHex2(line)) == -1)
+				else */
+			/* clear '\n' in '\r\n' */
+			src.readLine();
 		} /* while ((line = src.readLine()) != null) */
 	} /* public static void processLines(
 			final BufferedReader src, final PrintStream dest)
@@ -165,9 +182,17 @@ public enum ParseRegHex2 {
 		} /* if (!h2subs.equals(HEX2_START)) */
 		else {
 			/* otherwise, return the begin index */
-			return I_BEGIN;
-		}
+			return (I_BEGIN + 1);
+		} /* (!h2subs.equals(HEX2_START)) else */
 	} /* public static int findHex2(final String s) */
+
+	public static boolean isInHex2(final CharSequence line) {
+		if (line == null) {
+			return false;
+		}
+		final int LEN = line.length();
+		return ((LEN != 0) && (line.charAt(LEN - 1) == '\\'));
+	}
 
 	/**
 	 * Removes all null characters in a given character sequence up
